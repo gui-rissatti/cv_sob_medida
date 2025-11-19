@@ -1,0 +1,46 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.coverage*
+htmlcov/
+.cache/
+.venv/
+venv/
+ENV/
+
+# Node/Vite artifacts
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+*.log
+*.log.*
+
+# Environment files
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Tooling caches
+coverage/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.iml

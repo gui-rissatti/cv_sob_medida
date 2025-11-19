@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: Extraction API
+  version: 1.0.0
+  description: |
+    Contract for extracting structured job details from a supported vacancy URL.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /extract-job-details:
+    post:
+      summary: Extract job information from a provided URL
+      description: |
+        Scrapes the job posting content, validates critical fields, and returns
+        a normalized Job payload ready for downstream processing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  example: https://www.linkedin.com/jobs/view/123456
+      responses:
+        '200':
+          description: Job details successfully extracted and validated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: The supplied URL is unsupported or malformed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Scraping succeeded but essential fields are missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected error while scraping or processing the job posting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    Job:
+      type: object
+      required:
+        - id
+        - url
+        - title
+        - company
+        - description
+        - skills
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Unique identifier generated from the job URL hash.
+          example: 9a1b2c3d4e5f
+        url:
+          type: string
+          format: uri
+          example: https://www.linkedin.com/jobs/view/123456
+        title:
+          type: string
+          example: Senior Backend Engineer
+        company:
+          type: string
+          example: Tech Corp
+        description:
+          type: string
+          description: Rich text content describing responsibilities and requirements.
+        skills:
+          type: array
+          description: Distinct list of required or preferred skills.
+          items:
+            type: string
+          example:
+            - Python
+            - FastAPI
+            - PostgreSQL
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-11-19T10:00:00Z
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          example: validation_error
+        message:
+          type: string
+          example: URL domain linkedin.com is not supported.
+        details:
+          type: array
+          items:
+            type: string
+          description: Optional additional error context.

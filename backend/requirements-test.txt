@@ -1,0 +1,9 @@
+# Additional testing-only dependencies will be listed here.
+pytest
+pytest-cov
+python-dotenv
+pyyaml
+black
+ruff
+mypy
+trio

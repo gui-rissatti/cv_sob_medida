@@ -56,7 +56,7 @@ class GenerationAgent:
         self,
         *,
         llm: RunnableSerializable | None = None,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-2.5-flash",
         temperature: float = 0.4,
     ) -> None:
         self._llm = llm or self._build_default_llm(model=model, temperature=temperature)
@@ -122,4 +122,10 @@ class GenerationAgent:
             raise RuntimeError(
                 "ChatGoogleGenerativeAI is unavailable. Install langchain-google-genai."
             )
-        return ChatGoogleGenerativeAI(model=model, temperature=temperature)
+        from core.config import get_settings
+        settings = get_settings()
+        return ChatGoogleGenerativeAI(
+            model=model, 
+            temperature=temperature,
+            google_api_key=settings.google_api_key
+        )

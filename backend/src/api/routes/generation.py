@@ -1,10 +1,9 @@
 """Endpoint for generating application materials."""
-from __future__ import annotations
 
 from datetime import datetime
 from functools import lru_cache
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -84,7 +83,7 @@ def get_generation_agent() -> GenerationAgent:
 @limiter.limit(get_settings().rate_limit_generation)
 async def generate_materials(
     request: Request,
-    payload: GenerateRequest,
+    payload: GenerateRequest = Body(...),
     agent: GenerationAgent = Depends(get_generation_agent),
 ) -> GeneratedAssetsResponse:
     """Generate CV, cover letter, and insights based on job and profile."""

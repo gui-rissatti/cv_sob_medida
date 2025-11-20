@@ -1,12 +1,11 @@
 """Endpoint for extracting structured job details from a vacancy URL."""
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import lru_cache
 import hashlib
 from typing import Iterable
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
@@ -129,7 +128,7 @@ def _validation_details(exc: BaseException | None) -> list[str] | None:
 @limiter.limit(get_settings().rate_limit_extraction)
 async def extract_job_details(
     request: Request,
-    payload: ExtractJobDetailsRequest,
+    payload: ExtractJobDetailsRequest = Body(...),
     scraper: WebScraperService = Depends(get_scraper_service),
     agent: ExtractionAgent = Depends(get_extraction_agent),
 ) -> JobResponse:

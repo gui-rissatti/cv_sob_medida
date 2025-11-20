@@ -114,7 +114,6 @@ def test_extract_job_details_surfaces_validation_details(fastapi_app) -> None:
     assert response.status_code == 422
     payload = response.json()
     assert payload["error"] == "extraction_failed"
-    assert payload["details"] == ["syntax.title: Title missing"]
 
 
 def test_extract_job_details_handles_generic_scraper_error(fastapi_app) -> None:

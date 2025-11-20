@@ -51,7 +51,7 @@ class ExtractionAgent:
         *,
         llm: RunnableSerializable | None = None,
         validator: JobValidator | None = None,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-2.5-flash",
         temperature: float = 0.2,
         highlight_count: int = 3,
     ) -> None:
@@ -129,7 +129,14 @@ class ExtractionAgent:
             raise ExtractionAgentError(
                 "ChatGoogleGenerativeAI is unavailable. Provide an LLM instance when instantiating ExtractionAgent."
             )
-        return ChatGoogleGenerativeAI(model=model, temperature=temperature, convert_system_message_to_human=True)
+        from core.config import get_settings
+        settings = get_settings()
+        return ChatGoogleGenerativeAI(
+            model=model, 
+            temperature=temperature, 
+            convert_system_message_to_human=True,
+            google_api_key=settings.google_api_key
+        )
 
     @staticmethod
     def _html_preview(html: str, limit: int = 2000) -> str:

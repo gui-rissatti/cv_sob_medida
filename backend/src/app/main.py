@@ -40,7 +40,7 @@ def create_app() -> FastAPI:
     )
     application.add_middleware(
         TrustedHostMiddleware, 
-        allowed_hosts=["localhost", "127.0.0.1", "*.onrender.com"]
+        allowed_hosts=settings.allowed_hosts
     )
 
     # Exception Handlers

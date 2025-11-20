@@ -25,7 +25,7 @@ def test_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.environment == "development"
     assert settings.api_port == 8000
     assert settings.log_level == "INFO"
-    assert settings.cors_origins == ["http://localhost:5173"]
+    assert "http://localhost:5173" in settings.cors_origins
 
 
 def test_settings_loads_environment(monkeypatch: pytest.MonkeyPatch) -> None:

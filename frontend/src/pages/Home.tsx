@@ -11,6 +11,12 @@ export function HomePage() {
     assets, 
     cvText, 
     setCvText,
+    language,
+    setLanguage,
+    tone,
+    setTone,
+    variance,
+    setVariance,
     history
   } = useAppStore()
 
@@ -37,6 +43,12 @@ export function HomePage() {
             error={error}
             cvText={cvText}
             onCvChange={setCvText}
+            language={language}
+            onLanguageChange={setLanguage}
+            tone={tone}
+            onToneChange={setTone}
+            variance={variance}
+            onVarianceChange={setVariance}
           />
 
           {assets && <OutputSection assets={assets} />}

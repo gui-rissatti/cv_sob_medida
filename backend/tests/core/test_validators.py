@@ -57,7 +57,7 @@ def test_validate_rejects_unknown_board_semantically() -> None:
 
 
 def test_validate_flags_incomplete_fields() -> None:
-    validator = JobValidator(min_description_words=20)
+    validator = JobValidator(min_description_words=20, min_skill_count=1)
     job = _make_job(description="Short summary", skills=[])
 
     with pytest.raises(ValidationError) as excinfo:

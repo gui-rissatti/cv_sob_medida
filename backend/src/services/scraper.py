@@ -58,6 +58,7 @@ class WebScraperService:
             "linkedin": self._parse_linkedin,
             "gupy": self._parse_gupy,
             "indeed": self._parse_indeed,
+            "generic": self._parse_generic,
         }
 
     async def fetch_job(self, url: str) -> ScrapedJob:
@@ -76,13 +77,17 @@ class WebScraperService:
             return "gupy"
         if "indeed" in netloc:
             return "indeed"
-        raise UnsupportedJobBoardError(f"Domain '{netloc}' is not supported")
+        return "generic"
 
     async def _download(self, url: str) -> str:
         client = self._client
         owns_client = False
         if client is None:
-            client = httpx.AsyncClient(follow_redirects=True)
+            # Use a browser-like User-Agent to avoid being blocked by some sites
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            client = httpx.AsyncClient(follow_redirects=True, headers=headers)
             owns_client = True
         try:
             response = await client.get(url, timeout=self._timeout)
@@ -243,3 +248,49 @@ class WebScraperService:
             seen.add(key)
             unique.append(value)
         return unique
+
+    def _parse_generic(self, url: str, html: str, board: str) -> ScrapedJob:
+        """Fallback parser for unsupported domains."""
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Try to find title
+        title = "Unknown Position"
+        if soup.title and soup.title.string:
+            title = soup.title.string.strip()
+        
+        h1 = soup.find("h1")
+        if h1:
+            title = h1.get_text(strip=True)
+
+        # Try to find company
+        company = "Unknown Company"
+        og_site_name = soup.find("meta", property="og:site_name")
+        if og_site_name:
+            company = str(og_site_name.get("content", "Unknown Company"))
+
+        # Description: try to find the main content
+        description = ""
+        # Common content containers
+        main_content = (
+            soup.find("main") 
+            or soup.find("article") 
+            or soup.find("div", {"id": "content"}) 
+            or soup.find("div", {"class": "content"}) 
+            or soup.body
+        )
+        
+        if main_content:
+            # Remove noise
+            for tag in main_content(["script", "style", "nav", "footer", "header", "aside", "iframe"]):
+                tag.decompose()
+            description = main_content.get_text("\n", strip=True)
+
+        return ScrapedJob(
+            url=url,
+            board=board,
+            title=title,
+            company=company,
+            description=description,
+            skills=[],
+            raw_html=html[:10000],  # Keep enough context
+        )

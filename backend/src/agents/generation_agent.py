@@ -2,15 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 import structlog
-from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable
-from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from core.scoring import calculate_heuristic_score
@@ -27,14 +26,6 @@ except ImportError:
     ChatGoogleGenerativeAI = None  # type: ignore
 
 LOGGER = structlog.get_logger(__name__)
-
-
-class InsightsResult(BaseModel):
-    """Structured output for the insights generation."""
-
-    score: int = Field(..., description="Compatibility score (0-100)")
-    strengths: list[str] = Field(..., description="Key strengths to emphasize")
-    gap: str = Field(..., description="Potential gap or weakness to address")
 
 
 @dataclass(slots=True)
@@ -61,13 +52,22 @@ class GenerationAgent:
     ) -> None:
         self._llm = llm or self._build_default_llm(model=model, temperature=temperature)
         self._str_parser = StrOutputParser()
-        self._json_parser = JsonOutputParser(pydantic_object=InsightsResult)
 
-    async def generate_all(self, job_data: dict[str, Any], cv_text: str) -> GeneratedBundle:
+    async def generate_all(
+        self, 
+        job_data: dict[str, Any], 
+        cv_text: str,
+        language: str = "auto",
+        tone: str = "professional",
+        variance: int = 3,
+    ) -> GeneratedBundle:
         """Generate all materials in parallel."""
         
-        LOGGER.info("generation_agent.start", job_title=job_data.get("title"))
+        LOGGER.info("generation_agent.start", job_title=job_data.get("title"), language=language, tone=tone, variance=variance)
 
+        # Detect language if auto
+        target_language = self._resolve_language(job_data.get("description", ""), language)
+        
         # Prepare inputs for chains
         inputs = {
             "job_title": job_data.get("title", ""),
@@ -75,13 +75,16 @@ class GenerationAgent:
             "job_description": job_data.get("description", ""),
             "job_skills": ", ".join(job_data.get("skills", [])),
             "candidate_cv": cv_text,
+            "target_language": target_language,
+            "tone": tone,
+            "variance_level": variance,
         }
 
         # Define runnables
         cv_chain = CV_GENERATION_PROMPT | self._llm | self._str_parser
         cl_chain = COVER_LETTER_PROMPT | self._llm | self._str_parser
         net_chain = NETWORKING_PROMPT | self._llm | self._str_parser
-        insights_chain = INSIGHTS_PROMPT | self._llm | self._json_parser
+        insights_chain = INSIGHTS_PROMPT | self._llm | self._str_parser
 
         # Execute in parallel
         # We use return_exceptions=False to fail fast if one fails, or handle individually?
@@ -93,22 +96,32 @@ class GenerationAgent:
             self._run_with_retry(insights_chain, inputs),
         )
 
-        cv_result, cl_result, net_result, insights_data = results
-
-        # Fallback or merge score
-        # We have a heuristic score we could use as a sanity check or fallback
-        heuristic_score = calculate_heuristic_score(job_data.get("skills", []), cv_text)
-        llm_score = insights_data.get("score", 0)
+        cv_result, cl_result, net_result, insights_text = results
         
-        # Simple logic: Average them or trust LLM? 
-        # Let's trust LLM but log the difference.
-        LOGGER.debug("generation_agent.scores", llm=llm_score, heuristic=heuristic_score)
+        # Debug logging to ensure correct assignment
+        LOGGER.debug("generation_agent.results", 
+                    cv_start=cv_result[:50] if cv_result else "empty",
+                    cl_start=cl_result[:50] if cl_result else "empty",
+                    net_start=net_result[:50] if net_result else "empty",
+                    insights_start=insights_text[:50] if insights_text else "empty")
+
+        # Extract score from insights text
+        llm_score = self._extract_score_from_insights(insights_text)
+        
+        # Fallback to heuristic if extraction fails
+        if llm_score == 0:
+            heuristic_score = calculate_heuristic_score(job_data.get("skills", []), cv_text)
+            llm_score = heuristic_score
+            LOGGER.warning("generation_agent.score_extraction_failed", using_heuristic=heuristic_score)
+        else:
+            heuristic_score = calculate_heuristic_score(job_data.get("skills", []), cv_text)
+            LOGGER.debug("generation_agent.scores", llm=llm_score, heuristic=heuristic_score)
 
         return GeneratedBundle(
             cv=cv_result,
             cover_letter=cl_result,
             networking=net_result,
-            insights=json.dumps(insights_data), # Store as JSON string as per data model
+            insights=insights_text,  # Now storing formatted text instead of JSON
             match_score=llm_score,
             generated_at=datetime.now(timezone.utc),
         )
@@ -117,6 +130,48 @@ class GenerationAgent:
     async def _run_with_retry(self, chain: RunnableSerializable, inputs: dict[str, Any]) -> Any:
         return await chain.ainvoke(inputs)
 
+    def _extract_score_from_insights(self, insights_text: str) -> int:
+        """Extract compatibility score from formatted insights text."""
+        # Look for patterns like "Compatibilidade: 85/100" or "Compatibility: 85/100"
+        patterns = [
+            r"Compatibilidade:\s*(\d+)/100",
+            r"Compatibility:\s*(\d+)/100",
+            r"Compatibilité:\s*(\d+)/100",
+            r"Compatibilidad:\s*(\d+)/100",
+            r"##\s*\w+:\s*(\d+)/100",  # Generic heading with score
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, insights_text, re.IGNORECASE)
+            if match:
+                score = int(match.group(1))
+                return max(0, min(100, score))  # Clamp to 0-100
+        
+        return 0  # Return 0 if no score found
+
+    def _resolve_language(self, description: str, language: str) -> str:
+        """Detect or return the target language for outputs."""
+        if language != "auto":
+            return language
+        
+        # Simple heuristic: check for common words
+        desc_lower = description.lower()
+        
+        # Portuguese indicators
+        if any(word in desc_lower for word in ["você", "será", "responsável", "conhecimento", "experiência"]):
+            return "pt"
+        
+        # Spanish indicators  
+        if any(word in desc_lower for word in ["usted", "será", "responsable", "conocimiento", "experiencia"]):
+            return "es"
+        
+        # French indicators
+        if any(word in desc_lower for word in ["vous", "serez", "responsable", "connaissance", "expérience"]):
+            return "fr"
+        
+        # Default to English
+        return "en"
+    
     def _build_default_llm(self, *, model: str, temperature: float) -> RunnableSerializable:
         if ChatGoogleGenerativeAI is None:
             raise RuntimeError(

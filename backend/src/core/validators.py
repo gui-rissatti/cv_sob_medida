@@ -50,10 +50,10 @@ class JobValidator:
         min_description_chars: int = 80,
         max_description_chars: int = 20000,
         min_description_words: int = 15,
-        min_skill_count: int = 1,
+        min_skill_count: int = 0,
         max_skill_count: int = 25,
     ) -> None:
-        self._allowed_boards = {board.lower() for board in (allowed_boards or ["linkedin", "gupy", "indeed"])}
+        self._allowed_boards = {board.lower() for board in (allowed_boards or ["linkedin", "gupy", "indeed", "generic"])}
         self._min_title_chars = min_title_chars
         self._max_title_chars = max_title_chars
         self._min_company_chars = min_company_chars

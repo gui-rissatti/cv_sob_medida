@@ -106,11 +106,20 @@ async def test_fetch_job_indeed_parses_expected_fields() -> None:
 
 
 @pytest.mark.anyio
-async def test_fetch_job_unsupported_domain_short_circuits_request() -> None:
-    async with _mock_client("<html></html>") as client:
+async def test_fetch_job_unsupported_domain_uses_generic_parser() -> None:
+    html = """
+    <html>
+        <head><title>Software Engineer at TechCorp</title></head>
+        <body>
+            <div>We're hiring a Software Engineer to join our team...</div>
+        </body>
+    </html>
+    """
+    async with _mock_client(html) as client:
         service = WebScraperService(client=client)
-        with pytest.raises(UnsupportedJobBoardError):
-            await service.fetch_job("https://example.com/jobs/1")
+        job = await service.fetch_job("https://example.com/jobs/1")
+        assert job.board == "generic"
+        assert job.url == "https://example.com/jobs/1"
 
 
 @pytest.mark.anyio

@@ -29,6 +29,9 @@ class ProfileInput(BaseModel):
 
     name: str | None = None
     cv_text: str = Field(..., alias="cvText", description="Raw text content of the CV")
+    language: str = Field(default="auto", description="Output language (auto, pt, en, es, fr, de)")
+    tone: str = Field(default="professional", description="Tone of voice (professional, friendly, formal, enthusiastic)")
+    variance: int = Field(default=3, ge=1, le=5, description="Adaptation variance level (1=strict, 5=creative)")
 
 
 class GenerateRequest(BaseModel):
@@ -95,6 +98,9 @@ async def generate_materials(
         result: GeneratedBundle = await agent.generate_all(
             job_data=job_data,
             cv_text=payload.profile.cv_text,
+            language=payload.profile.language,
+            tone=payload.profile.tone,
+            variance=payload.profile.variance,
         )
         
         return GeneratedAssetsResponse(

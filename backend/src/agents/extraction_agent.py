@@ -81,8 +81,10 @@ class ExtractionAgent:
     def _validated(self, job: ScrapedJob) -> ScrapedJob:
         try:
             return self._validator.validate(job)
-        except ValidationError as exc:  # pragma: no cover - already covered via validator tests
-            raise ExtractionAgentError("Validation failed for scraped job") from exc
+        except ValidationError as exc:
+            # Provide detailed validation issues to help diagnose problems
+            error_details = "\n".join(f"  - {issue.field}: {issue.message}" for issue in exc.issues)
+            raise ExtractionAgentError(f"Validation failed for scraped job:\n{error_details}") from exc
 
     def _merge_payload(self, original: ScrapedJob, structured: _StructuredJobPayload) -> ScrapedJob:
         skills = structured.skills or original.skills

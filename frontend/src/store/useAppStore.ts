@@ -7,11 +7,17 @@ interface AppState {
   job: Job | null
   assets: GeneratedAssets | null
   cvText: string
+  language: string
+  tone: string
+  variance: number
   isLoading: boolean
   error: string | null
   history: ApplicationHistoryEntry[]
   
   setCvText: (text: string) => void
+  setLanguage: (language: string) => void
+  setTone: (tone: string) => void
+  setVariance: (variance: number) => void
   processUrl: (url: string) => Promise<void>
   reset: () => void
   loadHistory: () => Promise<void>
@@ -24,14 +30,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   job: null,
   assets: null,
   cvText: '', 
+  language: 'auto',
+  tone: 'professional',
+  variance: 3,
   isLoading: false,
   error: null,
   history: [],
 
   setCvText: (text) => set({ cvText: text }),
+  setLanguage: (language) => set({ language }),
+  setTone: (tone) => set({ tone }),
+  setVariance: (variance) => set({ variance }),
 
   processUrl: async (url: string) => {
-    const { cvText } = get()
+    const { cvText, language, tone, variance } = get()
     
     if (!cvText.trim()) {
       set({ error: 'Por favor, insira o texto do seu currículo antes de continuar.' })
@@ -46,7 +58,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ job })
 
       // Step 2: Generate Materials
-      const assets = await apiService.generateMaterials(job, cvText)
+      const assets = await apiService.generateMaterials(job, cvText, { language, tone, variance })
       set({ assets })
 
       // Step 3: Save to History

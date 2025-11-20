@@ -16,13 +16,32 @@ export const apiService = {
     return response.data
   },
 
-  async generateMaterials(job: Job, cvText: string): Promise<GeneratedAssets> {
+  async generateMaterials(
+    job: Job, 
+    cvText: string,
+    options: { language: string; tone: string; variance: number } = { language: 'auto', tone: 'professional', variance: 3 }
+  ): Promise<GeneratedAssets> {
     const response = await api.post<GeneratedAssets>('/generate-materials', {
       job,
       profile: {
         cvText,
+        language: options.language,
+        tone: options.tone,
+        variance: options.variance,
       },
     })
     return response.data
+  },
+
+  async extractCvText(file: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await axios.post<{ text: string }>(`${API_URL}/extract-cv-text`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data.text
   },
 }
